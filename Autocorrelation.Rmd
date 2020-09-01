@@ -1,0 +1,326 @@
+
+## CS760
+
+
+
+```{r}
+data2009 = read.csv("2009.csv")
+head(data2009)
+```
+
+
+```{r}
+dim(data2009)
+sort(table(data2009$ORIGIN))
+table(data2009$CANCELLATION_CODE)
+```
+
+
+
+```{r}
+atl2009 = data2009[data2009$ORIGIN=='ATL',]
+dim(atl2009)
+```
+
+
+```{r}
+
+atl2009Valid = atl2009[!is.na(atl2009$DEP_DELAY),]
+
+table(is.na(atl2009$DEP_DELAY))
+head(atl2009[is.na(atl2009$DEP_DELAY),])
+
+dim(atl2009Valid)
+
+dayMeanDelay = aggregate(atl2009Valid$DEP_DELAY, list(atl2009Valid$FL_DATE), mean)
+colnames(dayMeanDelay)=c("FL_DATE", "DEP_DELAY")
+head(dayMeanDelay)
+```
+
+
+```{r}
+
+dayMeanDelaySort = dayMeanDelay[sort(dayMeanDelay$DEP_DELAY,index.return=TRUE)$ix,]
+head(dayMeanDelaySort, 10)
+tail(dayMeanDelaySort)
+
+```
+
+```{r}
+library(tidyverse)
+
+maxDelayDay = atl2009Valid[atl2009Valid$FL_DATE=="2009-09-21",]
+
+dim(maxDelayDay)
+
+meanDepTime = aggregate(maxDelayDay$DEP_DELAY, list(maxDelayDay$DEP_TIME), mean)
+
+colnames(dayMeanDelay)=c("FL_DATE", "DEP_DELAY")
+
+
+ggplot(maxDelayDay, aes(DEP_TIME, DEP_DELAY)) + geom_point() + geom_smooth()
+```
+
+
+```{r}
+commonDelayDay = atl2009Valid[atl2009Valid$FL_DATE=="2009-03-21",]
+
+
+
+ggplot(commonDelayDay, aes(DEP_TIME, DEP_DELAY)) + geom_point() + geom_smooth()
+```
+
+```{r}
+head(maxDelayDay, 100)
+```
+
+
+
+```{r}
+
+
+ggplot(dayMeanDelay, aes(FL_DATE, DEP_DELAY)) + geom_point() + geom_smooth()
+
+
+```
+
+
+```{r}
+library(s20x)
+
+tail(atl2009Valid)
+dim(atl2009Valid)
+
+pairs20x(atl2009Valid[, c(1, 3, 5, 7, 8, 22)])
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+atl2009Valid[atl2009Valid$CRS_DEP_TIME==0,]
+```
+```{r}
+atl2009ValidDelay = atl2009Valid %>% arrange(DEP_DELAY)
+tail(atl2009ValidDelay)
+```
+
+
+
+```{r}
+atl2009Valid[atl2009Valid$OP_CARRIER=='MQ'&atl2009Valid$OP_CARRIER_FL_NUM==4445,]
+```
+
+```{r}
+flights.ts = ts(dayMeanDelay$DEP_DELAY, frequency = 100, start = c(2009, 1))
+flights.stl = stl(flights.ts, s.window = "periodic")
+plot(flights.stl)
+```
+
+
+
+
+```{r}
+atl2009Valid$Date = as.Date(atl2009Valid$FL_DATE,"%Y-%m-%d")
+head(atl2009Valid$Date)
+table(atl2009Valid$FL_DATE)
+```
+
+```{r}
+atl2009Valid$weekday = weekdays(atl2009Valid$Date)
+head(atl2009Valid$weekday)
+```
+
+
+```{r}
+max(atl2009Valid$CRS_DEP_TIME)
+atl2009Valid$hour = floor(atl2009Valid$CRS_DEP_TIME/100)
+table(atl2009Valid$hour)
+```
+
+
+
+
+```{r}
+hour = aggregate(atl2009Valid$DEP_DELAY, list(atl2009Valid$hour), mean)
+colnames(hour) = c("hour", "DEP_DELAY")
+#hour$hour = (hour$hour+19)%%24
+ggplot(hour, aes(hour, DEP_DELAY)) + geom_point() + geom_smooth()
+```
+```{r}
+dayHour = aggregate(atl2009Valid$DEP_DELAY, list(atl2009Valid$Date, atl2009Valid$hour), mean)
+colnames(dayHour) = c("date", "hour", "DEP_DELAY")
+head(dayHour)
+```
+
+```{r}
+dayHour$weekday = weekdays(dayHour$date)
+head(dayHour$weekday)
+```
+
+```{r}
+dayHour = dayHour %>% arrange(date, hour)
+head(dayHour)
+```
+
+
+
+```{r}
+fitDayHour = lm(DEP_DELAY ~ weekday + hour, data = dayHour)
+summary(fitDayHour)
+```
+
+```{r}
+plot(fitDayHour, which=1)
+
+acf(residuals(fitDayHour))
+
+
+```
+
+lagged-response models
+
+```{r}
+dayHour$prevDelay = c(0, dayHour$DEP_DELAY[-nrow(dayHour)])
+head(dayHour)
+dayHour = dayHour[-1,]
+head(dayHour)
+```
+
+```{r}
+fitDayHour = lm(DEP_DELAY ~ prevDelay, data = dayHour)
+summary(fitDayHour)
+
+confint(fitDayHour)
+```
+
+```{r}
+library(tidyverse)
+dayDelay = aggregate(atl2009Valid$DEP_DELAY, list(atl2009Valid$Date), mean)
+colnames(dayDelay) = c("date", "DEP_DELAY")
+dayDelay = dayDelay%>% arrange(dayDelay$date)
+head(dayDelay)
+dim(dayDelay)
+```
+```{r}
+dayDelay$prevDelay = c(0, dayDelay$DEP_DELAY[-nrow(dayDelay)])
+head(dayDelay)
+dayDelay = dayDelay[-1,]
+head(dayDelay)
+```
+
+
+
+```{r}
+fitDayDelay = lm(DEP_DELAY ~ prevDelay, data = dayDelay)
+summary(fitDayDelay)
+
+confint(fitDayDelay)
+
+```
+
+
+
+```{r}
+
+dayHourModel<-lm(DEP_DELAY~date+hour,data=dayHour)
+
+
+library(lmtest)
+dwtest(dayHourModel,alternative="two.sided")
+
+
+
+dayModel = lm(DEP_DELAY~date,data=dayDelay)
+dwtest(dayModel, alternative="two.sided")
+
+
+```
+
+plot
+```{r}
+  
+ggplot(dayHour, aes(prevDelay, DEP_DELAY)) + geom_point() + geom_smooth()
+  
+```
+
+
+
+```{r}
+#two days
+
+twoDayDelay = dayDelay
+twoDayDelay$prevDelay = c(c(0, 0), twoDayDelay$DEP_DELAY[c(-nrow(twoDayDelay), -nrow(twoDayDelay)+1)])
+twoDayDelay = twoDayDelay[c(-1,-2),]
+head(twoDayDelay)
+
+
+fitTwoDayDelay = lm(DEP_DELAY ~ prevDelay, data = twoDayDelay)
+summary(fitTwoDayDelay)
+
+confint(fitTwoDayDelay)
+
+
+
+```
+
+cancelation
+
+```{r}
+atlCancel = atl2009[atl2009$CANCELLED==1,]
+head(atlCancel)
+
+#??????FL_DATE, OP_CARRIER, OP_CARRIER_FL_NUM, ORIGIN, DEST, CRS_DEP_TIME, CRS_ARR_TIME, CRS_ELAPSED_TIME, DISTANCE???9???????????????
+```
+
+
+delay propagation
+```{r}
+
+data2019.1 = read.csv("42144100_T_ONTIME_REPORTING.csv")
+head(data2019.1)
+
+```
+
+
+
+
+```{r}
+tails = aggregate(data2019.1$ARR_DELAY, list(data2019.1$TAIL_NUM), mean)
+
+colnames(tails) = c("TAIL_NUM", "ARR_DELAY")
+
+tails = tails %>% arrange(desc(ARR_DELAY))
+
+tails
+```
+
+
+```{r}
+largestDelay = data2019.1[data2019.1$TAIL_NUM=='N478HA',c("TAIL_NUM", "FL_DATE", "ORIGIN", "DEST", "CRS_DEP_TIME", "DEP_TIME",  "CRS_ARR_TIME", "ARR_TIME", "ARR_DELAY")]
+largestDelay = largestDelay%>%arrange(FL_DATE, DEP_TIME)
+largestDelay[-1:-6,]
+
+largestDelay%>%arrange(desc(ARR_DELAY))
+```
+
+
+
+```{r}
+t = table(data2019.1$TAIL_NUM)
+
+sort(t, decreasing = TRUE)
+```
+
+```{r}
+data2019.1$TAIL_NUM in names(t>100)
+```
+
+
