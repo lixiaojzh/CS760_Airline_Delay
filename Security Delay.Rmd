@@ -1,0 +1,207 @@
+
+## CS760
+## Flight Delay Prediction
+## Security Delay Prediction
+
+
+```{r}
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+data2013_1 = read.csv("752940454_T_ONTIME_REPORTING.csv")
+head(data2013_1)
+```
+
+
+
+
+```{r}
+dim(data2013_1)
+sort(table(data2013_1$TAIL_NUM), decreasing=TRUE)
+
+```
+
+## use one aircraft data
+```{r}
+aircraft2013_1 = data2013_1[data2013_1$TAIL_NUM=="N476HA",]
+aircraft2013_1 = aircraft2013_1 %>% arrange(FL_DATE, CRS_DEP_TIME)
+head(aircraft2013_1)
+
+```
+
+
+## handle time
+```{r}
+aircraft2013_1_time = aircraft2013_1
+aircraft2013_1_time$CRS_DEP_TIME = aircraft2013_1_time$CRS_DEP_TIME%/%100*60+aircraft2013_1_time$CRS_DEP_TIME%%100
+aircraft2013_1_time$DEP_TIME = aircraft2013_1_time$DEP_TIME%/%100*60+aircraft2013_1_time$DEP_TIME%%100
+aircraft2013_1_time$CRS_ARR_TIME = aircraft2013_1_time$CRS_ARR_TIME%/%100*60+aircraft2013_1_time$CRS_ARR_TIME%%100
+aircraft2013_1_time$ARR_TIME = aircraft2013_1_time$ARR_TIME%/%100*60+aircraft2013_1_time$ARR_TIME%%100
+aircraft2013_1_time
+```
+
+
+## turnaround time 
+```{r}
+len = nrow(aircraft2013_1_time)
+aircraft2013_1_time$turnaround_time = 200
+aircraft2013_1_time[-1,]$turnaround_time = aircraft2013_1_time[-1,]$CRS_DEP_TIME -  aircraft2013_1_time[-len,]$ARR_TIME
+
+
+aircraft2013_1_time$new_day = 0
+aircraft2013_1_time[-aircraft2013_1_time$turnaround_time>500,]$new_day = 1
+aircraft2013_1_time[aircraft2013_1_time$new_day==1,]$turnaround_time = 200
+
+aircraft2013_1_time
+```
+
+```{r}
+sum(is.na(aircraft2013_1_time$ARR_DELAY))
+aircraft2013_1_time = aircraft2013_1_time[!is.na(aircraft2013_1_time$ARR_DELAY),]
+```
+
+## Date
+```{r}
+aircraft2013_1_time$flight_date = as.Date(aircraft2013_1_time$FL_DATE,"%Y-%m-%d")
+head(aircraft2013_1_time)
+```
+
+## month
+```{r}
+library(lubridate)
+aircraft2013_1_time$month = factor(month(aircraft2013_1_time$flight_date))
+head(aircraft2013_1_time$month)
+```
+
+## wday
+```{r}
+aircraft2013_1_time$wday = factor(wday(aircraft2013_1_time$flight_date))
+head(aircraft2013_1_time$wday)
+```
+
+
+
+
+
+
+
+
+## Late-arriving NA Handle
+```{r}
+aircraft2013_1_time[is.na(aircraft2013_1_time$LATE_AIRCRAFT_DELAY),]$LATE_AIRCRAFT_DELAY=0
+head(aircraft2013_1_time)
+```
+
+
+
+
+```{r}
+aircraft2013_1_time$LATE_AIRCRAFT_DELAY_BOOL=!is.na(aircraft2013_1_time$LATE_AIRCRAFT_DELAY) & aircraft2013_1_time$LATE_AIRCRAFT_DELAY>=15
+table(aircraft2013_1_time$LATE_AIRCRAFT_DELAY_BOOL)
+```
+
+## over-sampling
+```{r}
+LATE_AIRCRAFT_DELAY_TRUE = sample_n(aircraft2013_1_time[aircraft2013_1_time$LATE_AIRCRAFT_DELAY_BOOL==TRUE,], sum(aircraft2013_1_time$LATE_AIRCRAFT_DELAY_BOOL==FALSE), replace = TRUE)
+LATE_AIRCRAFT_DELAY_FALSE = aircraft2013_1_time[aircraft2013_1_time$LATE_AIRCRAFT_DELAY_BOOL==FALSE,]
+
+atl2013_LATE_AIRCRAFT = rbind(LATE_AIRCRAFT_DELAY_TRUE, LATE_AIRCRAFT_DELAY_FALSE)
+dim(atl2013_LATE_AIRCRAFT)
+table(atl2013_LATE_AIRCRAFT$LATE_AIRCRAFT_DELAY_BOOL)
+```
+
+## predict by simple variable
+```{r}
+fit <- glm(LATE_AIRCRAFT_DELAY_BOOL~turnaround_time, family="binomial", atl2013_LATE_AIRCRAFT)
+summary(fit)
+pred <- predict(fit, atl2013_LATE_AIRCRAFT, type="response")
+
+pred_result = pred>0.5
+head(pred_result)
+
+table(atl2013_LATE_AIRCRAFT$LATE_AIRCRAFT_DELAY_BOOL, pred_result)
+```
+
+```{r}
+sum(is.na(pred_result))
+sum(pred_result==atl2013_LATE_AIRCRAFT$LATE_AIRCRAFT_DELAY_BOOL)/length(pred_result)
+```
+
+## predict by all variables
+```{r}
+
+
+
+
+fit_SECURITY <- glm(SECURITY_DELAY_BOOL~previous_hour_avg_delay+OP_CARRIER+CRS_DEP_TIME+CRS_ARR_TIME+DISTANCE+month+wday, family="binomial", atl2013_SECURITY)
+```
+
+
+```{r}
+pred <- predict(fit_SECURITY, atl2013_SECURITY, type="response")
+
+pred_result = pred>0.5
+head(pred_result)
+
+table(atl2013_SECURITY$SECURITY_DELAY_BOOL, pred_result)
+sum(pred_result==atl2013_SECURITY$SECURITY_DELAY_BOOL)/length(pred_result)
+```
+
+
+
+
+
+```{r}
+atl2013[atl2013$SECURITY_DELAY_BOOL==TRUE,]
+
+table(atl2013[atl2013$SECURITY_DELAY_BOOL==TRUE,]$OP_CARRIER)
+```
+
+
+```{r}
+table(atl2013$OP_CARRIER)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

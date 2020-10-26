@@ -1,0 +1,219 @@
+
+## CS760
+## Flight Delay Prediction
+## Air Carrier Prediction
+
+
+```{r}
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+data2013 = read.csv("2013.csv")
+head(data2013)
+```
+
+
+
+
+```{r}
+dim(data2013)
+sort(table(data2013$DEST))
+table(data2013$CANCELLATION_CODE)
+```
+
+## Only use airport ATL data
+```{r}
+atl2013_origin = data2013[data2013$ORIGIN=='ATL',]
+atl2013_dest = data2013[data2013$DEST=='ATL',]
+
+```
+
+```{r}
+atl2013 = atl2013_dest
+dim(atl2013)
+head(atl2013)
+```
+
+
+
+```{r}
+rm(data2013)
+gc(reset=TRUE)
+```
+
+```{r}
+sum(is.na(atl2013$ARR_DELAY))
+atl2013 = atl2013[!is.na(atl2013$ARR_DELAY),]
+```
+
+## Date
+```{r}
+atl2013$flight_date = as.Date(atl2013$FL_DATE,"%Y-%m-%d")
+head(atl2013)
+```
+
+## month
+```{r}
+library(lubridate)
+atl2013$month = factor(month(atl2013$flight_date))
+head(atl2013$month)
+```
+
+## wday
+```{r}
+atl2013$wday = factor(wday(atl2013$flight_date))
+head(atl2013$wday)
+```
+
+
+## Hour
+```{r}
+library(tidyverse)
+
+atl2013 = atl2013 %>% arrange(flight_date, CRS_DEP_TIME)
+
+atl2013$plan_dep_hour = floor(atl2013$CRS_DEP_TIME/100)
+atl2013$plan_dep_previous_hour = atl2013$plan_dep_hour-1
+head(atl2013, 100)
+```
+
+
+
+
+
+## Carrier NA Handle
+```{r}
+atl2013[is.na(atl2013$CARRIER_DELAY),]$CARRIER_DELAY=0
+head(atl2013)
+```
+
+
+
+## Hourly average delay
+```{r}
+dayHourAirlineMeanDelay = aggregate(atl2013$NAS_DELAY, list(atl2013$FL_DATE, atl2013$plan_dep_hour, atl2013$OP_CARRIER), mean)
+head(dayHourAirlineMeanDelay)
+
+
+colnames(dayHourAirlineMeanDelay)=c("FL_DATE", "plan_dep_previous_hour", "OP_CARRIER", "previous_hour_avg_delay")
+dayHourAirlineMeanDelay = dayHourAirlineMeanDelay%>%arrange(FL_DATE,plan_dep_previous_hour)
+head(dayHourAirlineMeanDelay)
+
+```
+
+## previous hour average delay
+```{r}
+atl2013 = merge(atl2013, dayHourAirlineMeanDelay, by=c("FL_DATE", "plan_dep_previous_hour", "OP_CARRIER"), all.x=TRUE)
+
+head(atl2013, 100)
+
+
+```
+
+```{r}
+atl2013[is.na(atl2013$previous_hour_avg_delay),]$previous_hour_avg_delay=0
+head(atl2013)
+```
+
+```{r}
+atl2013$CARRIER_DELAY_BOOL=!is.na(atl2013$CARRIER_DELAY) & atl2013$CARRIER_DELAY>15
+table(atl2013$CARRIER_DELAY_BOOL)
+```
+
+## over-sampling
+```{r}
+CARRIER_DELAY_TRUE = sample_n(atl2013[atl2013$CARRIER_DELAY_BOOL==TRUE,], sum(atl2013$CARRIER_DELAY_BOOL==FALSE), replace = TRUE)
+CARRIER_DELAY_FALSE = atl2013[atl2013$CARRIER_DELAY_BOOL==FALSE,]
+
+atl2013_CARRIER = rbind(CARRIER_DELAY_TRUE, CARRIER_DELAY_FALSE)
+dim(atl2013_CARRIER)
+table(atl2013_CARRIER$CARRIER_DELAY_BOOL)
+```
+
+## predict by simple variable
+```{r}
+fit <- glm(CARRIER_DELAY_BOOL~previous_hour_avg_delay, family="binomial", atl2013_CARRIER)
+summary(fit)
+pred <- predict(fit, atl2013_CARRIER, type="response")
+
+pred_result = pred>0.5
+head(pred_result)
+
+table(atl2013_CARRIER$CARRIER_DELAY_BOOL, pred_result)
+```
+
+```{r}
+sum(is.na(pred_result))
+sum(pred_result==atl2013_CARRIER$CARRIER_DELAY_BOOL)/length(pred_result)
+```
+
+## predict by all variables
+```{r}
+
+
+
+
+fit_CARRIER <- glm(CARRIER_DELAY_BOOL~previous_hour_avg_delay+OP_CARRIER+CRS_DEP_TIME+CRS_ARR_TIME+DISTANCE+month+wday, family="binomial", atl2013_CARRIER)
+```
+
+
+```{r}
+pred <- predict(fit_CARRIER, atl2013_CARRIER, type="response")
+
+pred_result = pred>0.5
+head(pred_result)
+
+table(atl2013_CARRIER$CARRIER_DELAY_BOOL, pred_result)
+sum(pred_result==atl2013_CARRIER$CARRIER_DELAY_BOOL)/length(pred_result)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

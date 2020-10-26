@@ -1,0 +1,140 @@
+
+## CS760
+## Flight Delay Prediction
+## departure delay test
+
+
+```{r}
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+data2013 = read.csv("2013.csv")
+head(data2013)
+```
+
+
+
+
+```{r}
+dim(data2013)
+sort(table(data2013$ORIGIN))
+table(data2013$CANCELLATION_CODE)
+```
+
+## Only use airport ATL data
+```{r}
+atl2013 = data2013[data2013$ORIGIN=='ATL',]
+dim(atl2013)
+head(atl2013)
+
+rm(data2013)
+gc(reset=TRUE)
+```
+
+```{r}
+sum(is.na(atl2013$DEP_DELAY))
+atl2013 = atl2013[!is.na(atl2013$DEP_DELAY),]
+sum(is.na(atl2013$ARR_DELAY))
+atl2013 = atl2013[!is.na(atl2013$ARR_DELAY),]
+```
+
+## Date
+```{r}
+atl2013$flight_date = as.Date(atl2013$FL_DATE,"%Y-%m-%d")
+head(atl2013)
+```
+
+## ARR_DELAY_BOOL
+```{r}
+atl2013$ARR_DELAY_BOOL = atl2013$ARR_DELAY>15
+head(atl2013$ARR_DELAY_BOOL)
+```
+
+```{r}
+table(atl2013$ARR_DELAY_BOOL)
+```
+
+
+## over-sampling
+```{r}
+ARR_DELAY_TRUE = sample_n(atl2013[atl2013$ARR_DELAY_BOOL==TRUE,], sum(atl2013$ARR_DELAY_BOOL==FALSE), replace = TRUE)
+ARR_DELAY_FALSE = atl2013[atl2013$ARR_DELAY_BOOL==FALSE,]
+
+atl2013_ARR_DELAY = rbind(ARR_DELAY_TRUE, ARR_DELAY_FALSE)
+dim(atl2013_ARR_DELAY)
+table(atl2013_ARR_DELAY$ARR_DELAY_BOOL)
+```
+
+```{r}
+head(atl2013_ARR_DELAY)
+```
+
+
+## use DEP_DELAY to predict ARR_DELAY
+```{r}
+fit <- glm(ARR_DELAY_BOOL~DEP_DELAY+OP_CARRIER+DEST+CRS_DEP_TIME+CRS_ARR_TIME+DISTANCE, family="binomial", atl2013_ARR_DELAY)
+pred <- predict(fit, atl2013_ARR_DELAY, type="response")
+pred_result = pred>0.5
+accuracy_table = table(atl2013_ARR_DELAY$ARR_DELAY_BOOL, pred_result)
+sum(pred_result==atl2013_ARR_DELAY$ARR_DELAY_BOOL)/length(pred_result)
+```
+
+## use only DEP_DELAY
+```{r}
+fit_only_dep <- glm(ARR_DELAY_BOOL~DEP_DELAY, family="binomial", atl2013_ARR_DELAY)
+pred <- predict(fit_only_dep, atl2013_ARR_DELAY, type="response")
+pred_result = pred>0.5
+accuracy_table = table(atl2013_ARR_DELAY$ARR_DELAY_BOOL, pred_result)
+sum(pred_result==atl2013_ARR_DELAY$ARR_DELAY_BOOL)/length(pred_result)
+```
+
+## without DEP_DELAY to predict ARR_DELAY
+```{r}
+fit_without_dep <- glm(ARR_DELAY_BOOL~OP_CARRIER+DEST+CRS_DEP_TIME+CRS_ARR_TIME+DISTANCE, family="binomial", atl2013_ARR_DELAY)
+pred <- predict(fit_without_dep, atl2013_ARR_DELAY, type="response")
+pred_result = pred>0.5
+accuracy_table = table(atl2013_ARR_DELAY$ARR_DELAY_BOOL, pred_result)
+sum(pred_result==atl2013_ARR_DELAY$ARR_DELAY_BOOL)/length(pred_result)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

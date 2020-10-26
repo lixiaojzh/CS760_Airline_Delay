@@ -1,0 +1,143 @@
+
+## CS760
+## Flight Delay Prediction
+## Pre-processing
+
+
+```{r}
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+data2013 = read.csv("2013.csv")
+head(data2013)
+```
+
+```{r}
+dim(data2013)
+sort(table(data2013$ORIGIN))
+table(data2013$CANCELLATION_CODE)
+```
+
+## Only use airport ATL data
+```{r}
+atl2013 = data2013[data2013$ORIGIN=='ATL',]
+dim(atl2013)
+head(atl2013)
+```
+
+## average delay of each day
+```{r}
+atl2013Valid = atl2013[!is.na(atl2013$DEP_DELAY),]
+
+table(is.na(atl2013$DEP_DELAY))
+head(atl2013[is.na(atl2013$DEP_DELAY),])
+
+dim(atl2013Valid)
+
+dayMeanDelay = aggregate(atl2013Valid$DEP_DELAY, list(atl2013Valid$FL_DATE), mean)
+colnames(dayMeanDelay)=c("FL_DATE", "DEP_DELAY")
+head(dayMeanDelay)
+```
+
+
+```{r}
+dayMeanDelay$flight_date = as.Date(dayMeanDelay$FL_DATE,"%Y-%m-%d")
+head(dayMeanDelay)
+```
+
+
+```{r}
+ggplot(dayMeanDelay, aes(flight_date, DEP_DELAY)) + geom_point() + geom_smooth()
+```
+
+
+
+```{r}
+dayMeanDelaySort = dayMeanDelay[sort(dayMeanDelay$DEP_DELAY,index.return=TRUE)$ix,]
+head(dayMeanDelaySort, 10)
+tail(dayMeanDelaySort)
+```
+
+
+
+```{r}
+library(tidyverse)
+
+maxDelayDay = atl2013Valid[atl2013Valid$FL_DATE=="2013-08-09",]
+
+dim(maxDelayDay)
+
+meanDepTime = aggregate(maxDelayDay$DEP_DELAY, list(maxDelayDay$CRS_DEP_TIME), mean)
+
+colnames(dayMeanDelay)=c("FL_DATE", "DEP_DELAY")
+
+
+ggplot(maxDelayDay, aes(CRS_DEP_TIME, DEP_DELAY)) + geom_point() + geom_smooth()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
