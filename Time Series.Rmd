@@ -1,0 +1,114 @@
+
+## CS760
+## Flight Delay Prediction
+## Time Series
+
+
+```{r}
+library(tidyverse)
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+data2012 = read.csv("2012.csv")
+head(data2012)
+```
+
+```{r}
+dim(data2012)
+sort(table(data2012$OP_CARRIER_FL_NUM), decreasing=TRUE)
+```
+
+
+```{r}
+data2012$flight_num = paste(data2012$OP_CARRIER, data2012$OP_CARRIER_FL_NUM, sep="-")
+head(data2012)
+```
+
+
+```{r}
+sort(table(data2012$flight_num), decreasing=TRUE)
+```
+
+```{r}
+data2012 %>% filter(flight_num=="AS-64")%>%arrange(FL_DATE)
+```
+
+```{r}
+AS2012 =  data2012%>% filter(flight_num=="AS-64")
+head(AS2012)
+```
+
+```{r}
+AS2012 = AS2012 %>% filter(!is.na(ARR_DELAY))
+AS2012mean = aggregate(AS2012$ARR_DELAY, list(AS2012$FL_DATE), mean)
+head(AS2012mean)
+```
+
+```{r}
+rm(data2012)
+gc(reset=TRUE)
+data2013 = read.csv("2013.csv")
+data2013$flight_num = paste(data2013$OP_CARRIER, data2013$OP_CARRIER_FL_NUM, sep="-")
+AS2013 =  data2013%>% filter(flight_num=="AS-64")
+AS2013 = AS2013 %>% filter(!is.na(ARR_DELAY))
+AS2013mean = aggregate(AS2013$ARR_DELAY, list(AS2013$FL_DATE), mean)
+head(AS2013mean)
+```
+
+
+```{r}
+AS1213 = rbind(AS2012mean, AS2013mean)
+colnames(AS1213) = c("FL_DATE", "ARR_DELAY")
+
+```
+
+
+
+```{r}
+AS1213$flight_date = as.Date(AS1213$FL_DATE,"%Y-%m-%d")
+AS1213
+```
+
+```{r}
+dim(AS1213)
+AS1213.ts = ts(AS1213$ARR_DELAY, frequency = 362, start = c(2012, 1))
+AS1213.stl = stl(AS1213.ts, s.window = "periodic")
+plot(AS1213.stl)
+```
+
+
+```{r}
+rm(data2013)
+gc(reset=TRUE)
+data2012 = read.csv("2012.csv")
+atl2012 = data2012 %>% filter(ORIGIN=="ATL")
+head(atl2012)
+```
+
+```{r}
+atl1213 = rbind(atl2012[,c("FL_DATE","ARR_DELAY")], atl2013[,c("FL_DATE","ARR_DELAY")])
+atl1213
+```
+
+```{r}
+atl1213 = atl1213 %>% filter(!is.na(ARR_DELAY))
+atl1213mean = aggregate(atl1213$ARR_DELAY, list(atl1213$FL_DATE), mean)
+atl1213mean
+```
+
+```{r}
+colnames(atl1213mean) = c("FL_DATE", "ARR_DELAY")
+dim(atl1213mean)
+```
+
+```{r}
+atl1213mean.ts = ts(atl1213mean$ARR_DELAY, frequency = 365, start = c(2012, 1))
+atl1213mean.stl = stl(atl1213mean.ts, s.window = "periodic")
+plot(atl1213mean.stl)
+```
+
+```{r}
+write.csv(atl1213mean, "atl1213mean.csv", quote=FALSE)
+```

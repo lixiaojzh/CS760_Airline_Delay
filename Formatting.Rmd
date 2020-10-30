@@ -1,0 +1,154 @@
+
+## CS760
+## Flight Delay Prediction
+## Algorithm
+
+
+```{r}
+rm(list = ls())
+gc(reset=TRUE)
+```
+
+```{r}
+data2013 = read.csv("2013.csv")
+head(data2013)
+```
+
+```{r}
+dim(data2013)
+sort(table(data2013$ORIGIN))
+table(data2013$CANCELLATION_CODE)
+```
+
+## Only use airport ATL data
+```{r}
+atl2013 = data2013[data2013$ORIGIN=='ATL',]
+dim(atl2013)
+head(atl2013)
+```
+
+## frequency of each delay type
+```{r}
+atl2013$NAS_DELAY_BOOL=!is.na(atl2013$NAS_DELAY) & atl2013$NAS_DELAY>=15
+atl2013$CARRIER_DELAY_BOOL=!is.na(atl2013$CARRIER_DELAY) & atl2013$CARRIER_DELAY>=15
+atl2013$SECURITY_DELAY_BOOL=!is.na(atl2013$SECURITY_DELAY) & atl2013$SECURITY_DELAY>=15
+atl2013$LATE_AIRCRAFT_DELAY_BOOL=!is.na(atl2013$LATE_AIRCRAFT_DELAY) & atl2013$LATE_AIRCRAFT_DELAY>=15
+counts = rep(0,4)
+counts[1] = sum(atl2013$NAS_DELAY_BOOL==TRUE)
+counts[2] = sum(atl2013$CARRIER_DELAY_BOOL==TRUE)
+counts[3] = sum(atl2013$SECURITY_DELAY_BOOL==TRUE)
+counts[4] = sum(atl2013$LATE_AIRCRAFT_DELAY_BOOL==TRUE)
+(counts[1]*0.74+counts[2]*0.62+counts[3]*0.78+counts[4]*0.93)/sum(counts)
+counts
+```
+
+
+```{r}
+library(s20x)
+pairs20x(atl2013[, c("ARR_DELAY","DEP_DELAY")])
+
+max(atl2013[!is.na(atl2013$ARR_DELAY),]$ARR_DELAY)
+```
+
+
+
+```{r}
+atl2013$flight_date = as.Date(atl2013$FL_DATE,"%Y-%m-%d")
+head(atl2013)
+```
+
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+atl2013$Year = year(atl2013$flight_date)
+head(atl2013)
+```
+
+```{r}
+atl2013$Month = month(atl2013$flight_date)
+head(atl2013)
+```
+
+```{r}
+atl2013$DayofMonth = day(atl2013$flight_date)
+head(atl2013, 1000)
+```
+
+```{r}
+atl2013$DayOfWeek = wday(atl2013$flight_date)
+head(atl2013, 1000)
+```
+
+```{r}
+atl2013$dep_delayed_15min = atl2013$ARR_DELAY>=15
+head(atl2013, 1000)
+```
+
+```{r}
+atl2013RF = atl2013[,c("Year", "Month", "DayofMonth", "DayOfWeek", "CRS_DEP_TIME", "OP_CARRIER", "ORIGIN", "DEST", "DISTANCE", "dep_delayed_15min")]
+colnames(atl2013RF)=c("Year", "Month", "DayofMonth", "DayOfWeek", "DepTime", "UniqueCarrier", "Origin", "Dest", "Distance", "dep_delayed_15min")
+head(atl2013RF)
+```
+
+
+```{r}
+atl2013RF = atl2013RF[!is.na(atl2013RF$dep_delayed_15min),]
+table(atl2013RF$dep_delayed_15min)
+atl2013RF_TRUE = atl2013RF[atl2013RF$dep_delayed_15min==TRUE,]
+
+atl2013RF_FALSE = sample_n(atl2013RF[atl2013RF$dep_delayed_15min==FALSE,], nrow(atl2013RF_TRUE), replace = FALSE)
+
+
+atl2013RF_BALANCE = rbind(atl2013RF_TRUE, atl2013RF_FALSE)
+dim(atl2013RF_BALANCE)
+table(atl2013RF_BALANCE$dep_delayed_15min)
+
+```
+
+
+```{r}
+atl2013RF_BALANCE$Month = paste("c-", atl2013RF_BALANCE$Month, sep="")
+atl2013RF_BALANCE$DayofMonth = paste("c-", atl2013RF_BALANCE$DayofMonth, sep="")
+atl2013RF_BALANCE$DayOfWeek = paste("c-", atl2013RF_BALANCE$DayOfWeek, sep="")
+head(atl2013RF_BALANCE)
+```
+
+```{r}
+atl2013RF_BALANCE[atl2013RF_BALANCE$dep_delayed_15min==TRUE,]$dep_delayed_15min = "Y"
+atl2013RF_BALANCE[atl2013RF_BALANCE$dep_delayed_15min!="Y",]$dep_delayed_15min = "N"
+head(atl2013RF_BALANCE)
+```
+
+```{r}
+write.csv(atl2013RF_BALANCE,"atl2013RF_BALANCE.csv", quote=FALSE, row.names=FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
